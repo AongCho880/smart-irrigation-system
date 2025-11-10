@@ -7,15 +7,20 @@ import { ControlPanel } from './components/ControlPanel';
 import { HistoryLog } from './components/HistoryLog';
 import { DataChart } from './components/DataChart';
 import { AuthPage } from './components/AuthPage';
+import { UserSettings } from './components/UserSettings';
 import { RegionSelector } from './components/RegionSelector';
 import { AIInsights } from './components/AIInsights';
+import { Toast } from './components/Toast';
 import type { SensorData, HistoryEntry, WeatherData, AIDecision } from './types';
 import { getIrrigationDecision } from './services/geminiService';
+import { AuthApi } from './services/api';
 import { getRealWeatherForecast } from './services/weatherService';
 import { regions } from './data/regions';
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [toast, setToast] = useState<{ message: string; kind?: 'info' | 'success' | 'error' } | null>(null);
   const [sensorData, setSensorData] = useState<SensorData>({
     soilMoisture: 45,
     temperature: 22,
@@ -52,11 +57,12 @@ const App: React.FC = () => {
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
 
-  // Region State
-  const [selectedCountry, setSelectedCountry] = useState<string>('Bangladesh');
-  const [selectedDivision, setSelectedDivision] = useState<string>('Chattogram');
-  const [selectedZilla, setSelectedZilla] = useState<string>('Bandarban');
-  const [selectedUpazila, setSelectedUpazila] = useState<string>('Bandarban Sadar');
+  // Region State (blank unless user has a defaultRegion)
+  const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const [selectedDivision, setSelectedDivision] = useState<string>('');
+  const [selectedZilla, setSelectedZilla] = useState<string>('');
+  const [selectedUpazila, setSelectedUpazila] = useState<string>('');
+  const [hasDefaultRegion, setHasDefaultRegion] = useState<boolean>(false);
 
   const currentLocation = useMemo(() => {
     if (selectedUpazila && selectedZilla && selectedCountry) {
@@ -70,12 +76,40 @@ const App: React.FC = () => {
 
   useEffect(() => { locationRef.current = currentLocation; }, [currentLocation]);
 
-  // Load auth, region, device IP, and history from localStorage
+  // Verify token with backend if present
   useEffect(() => {
-    const loggedInStatus = localStorage.getItem('irrigation_isLoggedIn');
-    if (loggedInStatus === 'true') {
-      setIsAuthenticated(true);
-    }
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    (async () => {
+      try {
+        const res = await AuthApi.me(token);
+        setIsAuthenticated(true);
+        const dr: any = res.user.defaultRegion;
+        const present = !!(dr && (dr.country || dr.division || dr.zilla || dr.upazila));
+        setHasDefaultRegion(present);
+        if (present) {
+          setSelectedCountry(dr.country || '');
+          setSelectedDivision(dr.division || '');
+          setSelectedZilla(dr.zilla || '');
+          setSelectedUpazila(dr.upazila || '');
+        } else {
+          setSelectedCountry('');
+          setSelectedDivision('');
+          setSelectedZilla('');
+          setSelectedUpazila('');
+        }
+      } catch {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        setIsAuthenticated(false);
+      }
+    })();
+  }, []);
+
+  // Load auth, device IP, and history from localStorage (region stays blank unless defaultRegion is set)
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    if (token) setIsAuthenticated(true);
     const savedAiMode = localStorage.getItem('irrigation_aiMode');
     if (savedAiMode) {
       setAiModeEnabled(savedAiMode === 'true');
@@ -84,18 +118,7 @@ const App: React.FC = () => {
     if (savedAiAutoRefresh) {
       setAiAutoRefreshEnabled(savedAiAutoRefresh === 'true');
     }
-    const savedRegion = localStorage.getItem('irrigation_region');
-    if (savedRegion) {
-        try {
-            const { country, division, zilla, upazila } = JSON.parse(savedRegion);
-            setSelectedCountry(country || 'Bangladesh');
-            setSelectedDivision(division || '');
-            setSelectedZilla(zilla || '');
-            setSelectedUpazila(upazila || '');
-        } catch (e) {
-            console.error("Failed to parse region from localStorage", e);
-        }
-    }
+    // Do not hydrate region from localStorage; users set it via Default Region in Settings.
     const savedCrop = localStorage.getItem('irrigation_cropType');
     if (savedCrop) {
       setCropType(savedCrop);
@@ -175,6 +198,7 @@ const App: React.FC = () => {
   const handlePumpToggle = useCallback(async (manualStatus: 'ON' | 'OFF', source: 'manual' | 'ai' = 'manual') => {
     if (!isDeviceConnected) {
         setDeviceError("Cannot control pump. Device is not connected.");
+        setToast({ message: 'Cannot control pump. Device is not connected.', kind: 'error' });
         return;
     }
     try {
@@ -197,6 +221,7 @@ const App: React.FC = () => {
     } catch (error) {
         console.error("Error toggling pump:", error);
         setDeviceError('Failed to send command. Check connection.');
+        setToast({ message: 'Failed to send command. Check connection.', kind: 'error' });
         setIsDeviceConnected(false);
     }
   }, [addHistoryEntry, isDeviceConnected, deviceIp]);
@@ -506,14 +531,14 @@ const App: React.FC = () => {
 
 
   const handleLoginSuccess = () => {
-    localStorage.setItem('irrigation_isLoggedIn', 'true');
     setIsAuthenticated(true);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('irrigation_isLoggedIn');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
     setIsAuthenticated(false);
-    // Keep history persisted until user clears it explicitly
+    setToast({ message: 'Logged out', kind: 'info' });
   };
 
   const handleClearHistory = () => {
@@ -545,6 +570,7 @@ const App: React.FC = () => {
   const handleConnect = async () => {
     if (!deviceIp) {
       setDeviceError("Please enter an IP address.");
+      setToast({ message: 'Please enter an IP address.', kind: 'error' });
       return;
     }
     setDeviceError(null);
@@ -558,6 +584,7 @@ const App: React.FC = () => {
       }
       setIsDeviceConnected(true);
       localStorage.setItem('irrigation_deviceIp', deviceIp);
+      setToast({ message: 'Device connected', kind: 'success' });
     } catch (err) {
       let errorMessage = 'Failed to connect. Please try again.';
       if (err instanceof TypeError && err.message === 'Failed to fetch') {
@@ -567,6 +594,7 @@ const App: React.FC = () => {
       }
       setDeviceError(errorMessage);
       setIsDeviceConnected(false);
+      setToast({ message: errorMessage, kind: 'error' });
     } finally {
       setIsConnecting(false);
     }
@@ -575,6 +603,7 @@ const App: React.FC = () => {
   const handleDisconnect = () => {
     setIsDeviceConnected(false);
     setDeviceError(null);
+    setToast({ message: 'Device disconnected', kind: 'info' });
   };
 
   if (!isAuthenticated) {
@@ -584,9 +613,29 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-base p-4 sm:p-6 lg:p-8 font-sans">
       <div className="max-w-7xl mx-auto">
-        <Header onLogout={handleLogout} />
+        <Header onLogout={handleLogout} userName={(JSON.parse(localStorage.getItem('auth_user') || '{}')?.name) || (JSON.parse(localStorage.getItem('auth_user') || '{}')?.email) || ''} />
         
+        {/* Tabs */}
+        <div className="mt-4 flex gap-2">
+          <button
+            className={`px-4 py-2 rounded ${!showSettings ? 'bg-primary text-black' : 'bg-surface border border-border'}`}
+            onClick={() => setShowSettings(false)}
+          >Dashboard</button>
+          <button
+            className={`px-4 py-2 rounded ${showSettings ? 'bg-primary text-black' : 'bg-surface border border-border'}`}
+            onClick={() => setShowSettings(true)}
+          >Settings</button>
+        </div>
+
         <main className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          {showSettings && (
+            <div className="md:col-span-2">
+              <UserSettings token={localStorage.getItem('auth_token') || ''} />
+            </div>
+          )}
+
+          {!showSettings && (
+          <>
           {/* Device Connection Panel */}
           <div className="md:col-span-2 bg-panel rounded-xl p-6 shadow-lg">
             <h2 className="text-xl font-bold text-text-primary mb-4">Device Connection</h2>
@@ -619,7 +668,10 @@ const App: React.FC = () => {
 
           {/* Location Settings */}
           <div className="md:col-span-2 bg-panel rounded-xl p-6 shadow-lg">
-             <h2 className="text-xl font-bold text-text-primary mb-4">Location Settings</h2>
+             <h2 className="text-xl font-bold text-text-primary mb-2">Location Settings</h2>
+             <p className="text-sm text-text-secondary mb-2">
+               {hasDefaultRegion ? 'Default Region applied from your profile.' : 'No Default Region set. Fields are blank.'}
+             </p>
              <RegionSelector
                 regions={regions}
                 selectedCountry={selectedCountry}
@@ -693,9 +745,9 @@ const App: React.FC = () => {
               <h2 className="text-xl font-bold text-text-primary mb-4">Control Panel</h2>
               <ControlPanel
                 pumpStatus={pumpStatus}
-                onToggle={(s) => handlePumpToggle(s, 'manual')}
+                onToggle={(s) => { setToast({ message: `Pump ${s} command sent`, kind: 'info' }); handlePumpToggle(s, 'manual'); }}
                 aiModeEnabled={aiModeEnabled}
-                onAiModeToggle={setAiModeEnabled}
+                onAiModeToggle={(v)=>{ setAiModeEnabled(v); setToast({ message: v ? 'AI mode enabled' : 'AI mode disabled', kind: 'info' }); }}
               />
           </div>
 
@@ -718,9 +770,14 @@ const App: React.FC = () => {
             </div>
             <HistoryLog history={history} />
           </div>
+          </>
+          )}
 
         </main>
       </div>
+      {toast && (
+        <Toast message={toast.message} kind={toast.kind} onClose={() => setToast(null)} />
+      )}
     </div>
   );
 };

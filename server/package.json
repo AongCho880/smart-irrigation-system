@@ -6,7 +6,9 @@
   "type": "commonjs",
   "scripts": {
     "dev": "nodemon index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "test:db": "node scripts/test-connection.js",
+    "test:db:driver": "node scripts/ping-mongo.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -14,6 +16,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
+    "mongodb": "^7.0.0",
     "mongoose": "^8.6.2",
     "morgan": "^1.10.0"
   },
@@ -21,4 +24,3 @@
     "nodemon": "^3.1.7"
   }
 }
-

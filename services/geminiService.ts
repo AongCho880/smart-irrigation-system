@@ -2,11 +2,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { SensorData, WeatherData, AIDecision } from '../types';
 
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable not set");
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+if (!GEMINI_API_KEY) {
+  throw new Error("VITE_GEMINI_API_KEY not set in .env.local");
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 const parseJsonResponse = <T,>(text: string): T | null => {
   try {

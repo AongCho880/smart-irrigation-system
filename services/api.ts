@@ -22,17 +22,25 @@ async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
   return res.json();
 }
 
+export type DefaultRegion = { country?: string; division?: string; zilla?: string; upazila?: string };
+export type AuthUser = { id: string; email: string; name?: string; phone?: string; roles: string[]; defaultRegion?: DefaultRegion };
+
 export const AuthApi = {
-  register: (email: string, password: string, name?: string) =>
+  register: (email: string, password: string, name?: string, phone?: string) =>
     api<{ id: string; email: string }>(`/api/auth/register`, {
       method: 'POST',
-      body: { email, password, name },
+      body: { email, password, name, phone },
     }),
   login: (email: string, password: string) =>
-    api<{ token: string; user: { id: string; email: string; name?: string; roles: string[] } }>(`/api/auth/login`, {
+    api<{ token: string; user: AuthUser }>(`/api/auth/login`, {
       method: 'POST',
       body: { email, password },
     }),
+  me: (token: string) => api<{ user: AuthUser }>(`/api/auth/me`, { token }),
+  requestReset: (phone: string) =>
+    api<{ ok: boolean }>(`/api/auth/request-reset`, { method: 'POST', body: { phone } }),
+  resetPassword: (phone: string, code: string, newPassword: string) =>
+    api<{ ok: boolean }>(`/api/auth/reset-password`, { method: 'POST', body: { phone, code, newPassword } }),
 };
 
 export type ActivityLog = {
@@ -52,3 +60,10 @@ export const ActivityApi = {
   listMine: (token: string) => api<ActivityLog[]>(`/api/activity`, { token }),
 };
 
+export const UserApi = {
+  me: (token: string) => api<{ user: AuthUser }>(`/api/user/me`, { token }),
+  updateMe: (token: string, payload: { name?: string; phone?: string; defaultRegion?: DefaultRegion }) =>
+    api<{ user: AuthUser }>(`/api/user/me`, { method: 'PUT', token, body: payload }),
+  changePassword: (token: string, currentPassword: string, newPassword: string) =>
+    api<{ ok: boolean }>(`/api/user/password`, { method: 'PUT', token, body: { currentPassword, newPassword } }),
+};

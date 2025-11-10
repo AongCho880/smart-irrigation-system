@@ -50,8 +50,9 @@ Core modules (selected):
    - `npm install`
 2. Configure environment variables
    - Create `.env.local` in the project root with:
-     - `GEMINI_API_KEY=your_gemini_api_key`
-   - The Vite config maps `GEMINI_API_KEY` to `process.env.API_KEY` for the Gemini client.
+     - `VITE_GEMINI_API_KEY=your_gemini_api_key`
+     - `VITE_API_URL=http://localhost:4000`
+   - Start the backend in `server/` with your Atlas `MONGODB_URI` and `JWT_SECRET`.
 3. Run the app in development
    - `npm run dev`
    - Open http://localhost:3000
@@ -100,8 +101,9 @@ Notes
 - Auto‑refresh mode keeps recommendations fresh with cached‑weather updates every 30s and a periodic full refresh.
 - Crop-aware decisions: set the crop type in Location Settings. The AI adjusts thresholds for water-loving vs. drought-tolerant crops when recommending irrigation.
 
-Environment variable
-- `GEMINI_API_KEY` — configured in `.env.local` and bound to `process.env.API_KEY` at build time (see `vite.config.ts`).
+Environment variables
+- Frontend: `VITE_GEMINI_API_KEY`, `VITE_API_URL`
+- Server: `MONGODB_URI`, `JWT_SECRET`, `CORS_ORIGIN`, `PORT`
 
 ## Weather Data
 - Sources data from OpenWeather:
@@ -158,7 +160,7 @@ smart-irrigation-system/
   - Verify the IP address (from Serial Monitor) and that your machine and device are on the same Wi‑Fi.
   - Confirm the ESP32 serves CORS headers for browser requests.
 - AI key errors
-  - Ensure `.env.local` contains `GEMINI_API_KEY` and restart the dev server after changes.
+  - Ensure `.env.local` contains `VITE_GEMINI_API_KEY` and restart the dev server after changes.
 - Weather errors or wrong location
   - Check the Location Settings and try a more precise name.
 
