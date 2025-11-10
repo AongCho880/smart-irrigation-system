@@ -43,6 +43,7 @@ export const UserSettings: React.FC<Props> = ({ token }) => {
   const updateProfile = async () => {
     setErr(''); setStatus('');
     try {
+      if (!window.confirm('Save profile changes?')) return;
       const res = await UserApi.updateMe(token, { name, phone });
       setUser(res.user);
       setStatus('Profile updated');
@@ -57,6 +58,7 @@ export const UserSettings: React.FC<Props> = ({ token }) => {
   const changePassword = async () => {
     setErr(''); setStatus('');
     try {
+      if (!window.confirm('Change password now?')) return;
       await UserApi.changePassword(token, currentPassword, newPassword);
       setStatus('Password changed');
       setCurrentPassword(''); setNewPassword('');
@@ -120,6 +122,7 @@ export const UserSettings: React.FC<Props> = ({ token }) => {
               onClick={async ()=>{
                 setErr(''); setStatus('');
                 try {
+                  if (!window.confirm('Save default region?')) return;
                   const res = await UserApi.updateMe(token, { defaultRegion: { country, division, zilla, upazila } });
                   setUser(res.user);
                   setStatus('Default region saved');

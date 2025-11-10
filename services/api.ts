@@ -58,6 +58,7 @@ export const ActivityApi = {
       body: { action, metadata },
     }),
   listMine: (token: string) => api<ActivityLog[]>(`/api/activity`, { token }),
+  clearMine: (token: string) => api<{ deleted: number }>(`/api/activity`, { method: 'DELETE', token }),
 };
 
 export const UserApi = {

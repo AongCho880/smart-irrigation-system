@@ -13,7 +13,7 @@ import { AIInsights } from './components/AIInsights';
 import { Toast } from './components/Toast';
 import type { SensorData, HistoryEntry, WeatherData, AIDecision } from './types';
 import { getIrrigationDecision } from './services/geminiService';
-import { AuthApi } from './services/api';
+import { AuthApi, ActivityApi } from './services/api';
 import { getRealWeatherForecast } from './services/weatherService';
 import { regions } from './data/regions';
 
@@ -106,6 +106,27 @@ const App: React.FC = () => {
     })();
   }, []);
 
+  // Fetch activity logs from backend after authentication
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    (async () => {
+      try {
+        const logs = await ActivityApi.listMine(token);
+        const mapped: HistoryEntry[] = logs.map((l: any) => ({
+          id: Date.parse(l.createdAt) || Date.now(),
+          timestamp: new Date(l.createdAt),
+          action: l.action,
+          details: l.metadata?.details || '',
+        }));
+        setHistory(mapped);
+      } catch (e) {
+        console.error('Failed to fetch activity logs', e);
+      }
+    })();
+  }, [isAuthenticated]);
+
   // Load auth, device IP, and history from localStorage (region stays blank unless defaultRegion is set)
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
@@ -174,7 +195,12 @@ const App: React.FC = () => {
   const memoizedSensorData = useMemo(() => sensorData, [sensorData]);
 
   const addHistoryEntry = useCallback((entry: Omit<HistoryEntry, 'timestamp' | 'id'>) => {
-    setHistory(prev => [{ ...entry, timestamp: new Date(), id: Date.now() }, ...prev]);
+    const item: HistoryEntry = { ...entry, timestamp: new Date(), id: Date.now() } as any;
+    setHistory(prev => [item, ...prev]);
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      ActivityApi.create(token, entry.action, { details: entry.details }).catch(() => {});
+    }
   }, []);
 
   // Helper: categorize soil moisture
@@ -535,15 +561,23 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+    const ok = window.confirm('Are you sure you want to logout?');
+    if (!ok) return;
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
     setIsAuthenticated(false);
     setToast({ message: 'Logged out', kind: 'info' });
   };
 
-  const handleClearHistory = () => {
+  const handleClearHistory = async () => {
+    if (!window.confirm('Clear all activity logs?')) return;
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      try { await ActivityApi.clearMine(token); } catch {}
+    }
     setHistory([]);
     localStorage.removeItem('irrigation_history');
+    setToast({ message: 'Activity log cleared', kind: 'success' });
   };
   
   // Cascading dropdown logic
@@ -568,6 +602,7 @@ const App: React.FC = () => {
   };
 
   const handleConnect = async () => {
+    if (!window.confirm('Connect to the device using the provided IP?')) return;
     if (!deviceIp) {
       setDeviceError("Please enter an IP address.");
       setToast({ message: 'Please enter an IP address.', kind: 'error' });
@@ -601,6 +636,7 @@ const App: React.FC = () => {
   };
 
   const handleDisconnect = () => {
+    if (!window.confirm('Disconnect the device?')) return;
     setIsDeviceConnected(false);
     setDeviceError(null);
     setToast({ message: 'Device disconnected', kind: 'info' });
@@ -733,7 +769,7 @@ const App: React.FC = () => {
               currentSoilMoisture={sensorData.soilMoisture}
               onRefresh={() => fetchAIResponse(sensorData, currentLocation)}
               autoRefreshEnabled={aiAutoRefreshEnabled}
-              onToggleAutoRefresh={setAiAutoRefreshEnabled}
+              onToggleAutoRefresh={(v)=>{ if (window.confirm(v ? 'Enable auto refresh?' : 'Disable auto refresh?')) setAiAutoRefreshEnabled(v); }}
               transitionCountdown={transitionCountdown ?? undefined}
               transitionTarget={transitionTarget ?? undefined}
               cropType={cropType}
@@ -745,9 +781,19 @@ const App: React.FC = () => {
               <h2 className="text-xl font-bold text-text-primary mb-4">Control Panel</h2>
               <ControlPanel
                 pumpStatus={pumpStatus}
-                onToggle={(s) => { setToast({ message: `Pump ${s} command sent`, kind: 'info' }); handlePumpToggle(s, 'manual'); }}
+                onToggle={(s) => {
+                  if (window.confirm(`Are you sure you want to turn ${s === 'ON' ? 'ON' : 'OFF'} the pump?`)) {
+                    handlePumpToggle(s, 'manual');
+                    setToast({ message: `Pump ${s} command sent`, kind: 'info' });
+                  }
+                }}
                 aiModeEnabled={aiModeEnabled}
-                onAiModeToggle={(v)=>{ setAiModeEnabled(v); setToast({ message: v ? 'AI mode enabled' : 'AI mode disabled', kind: 'info' }); }}
+                onAiModeToggle={(v)=>{
+                  if (window.confirm(v ? 'Enable AI mode?' : 'Disable AI mode?')) {
+                    setAiModeEnabled(v);
+                    setToast({ message: v ? 'AI mode enabled' : 'AI mode disabled', kind: 'info' });
+                  }
+                }}
               />
           </div>
 

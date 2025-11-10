@@ -35,5 +35,15 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+// Clear current user's logs
+router.delete('/', auth, async (req, res) => {
+  try {
+    const result = await ActivityLog.deleteMany({ user: req.user.id });
+    res.json({ deleted: result.deletedCount || 0 });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to clear logs' });
+  }
+});
 
+module.exports = router;
