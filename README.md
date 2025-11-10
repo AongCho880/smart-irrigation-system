@@ -147,10 +147,10 @@ smart-irrigation-system/
 - Calibrations per soil/plant type.
 
 **Team**
-- Minhajul Islam
-- Aong Cho Thing Marma
-- Jahirul Islam
-- Md. Arman
+- Minhajul Islam — GitHub: [MI-Minhaj](https://github.com/MI-Minhaj)
+- Aong Cho Thing Marma — GitHub: [AongCho880](https://github.com/AongCho880)
+- Jahirul Islam — GitHub: [jahir2665](https://github.com/jahir2665)
+- Md. Arman — GitHub: [username](https://github.com/username)
 
 **Supervisor**
 - Dr. Mohammad Shahadat Hossain
