@@ -50,8 +50,6 @@ if (!MONGODB_URI) {
 mongoose
   .connect(MONGODB_URI, {
     dbName: MONGODB_DB,
-    // Help in networks where IPv6 or DNS causes issues
-    family: 4,
     serverSelectionTimeoutMS: 15000,
   })
   .then(() => {

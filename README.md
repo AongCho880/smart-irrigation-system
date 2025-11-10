@@ -2,11 +2,14 @@
 
 A modern, browser‑based smart irrigation dashboard built with React, TypeScript, and Vite. It connects to an ESP32‑based soil sensor and pump controller for live operation, or runs in a safe Demo mode to simulate and demonstrate AI‑assisted irrigation decisions without hardware.
 
-## Key Features
+**Demo User Interface**
+- View a walkthrough of the app’s UI and flows: [Smart_Irrigation_System_Reordered_Presentation.pdf](Smart_Irrigation_System_Reordered_Presentation.pdf)
+
+**Key Features**
 - Live and Demo modes for soil moisture
   - Live: Read‑only, realtime values from ESP32, clearly tagged “Live”.
   - Demo: Manual slider to simulate soil moisture, clearly tagged “Demo”.
-- AI Agronomist insights using Google Gemini
+- AI agronomist insights using Google Gemini
   - Actionable recommendation: “Irrigate” or “Hold” with a reason.
   - Confidence score and concise analysis points.
   - Auto‑refresh mode with lightweight updates and periodic full refreshes.
@@ -20,7 +23,7 @@ A modern, browser‑based smart irrigation dashboard built with React, TypeScrip
   - Moisture, temperature, and humidity display.
   - Time‑series chart of recent sensor readings.
 
-## Architecture Overview
+**Architecture Overview**
 - Frontend: React 19 + TypeScript + Vite 6
 - Charts: Recharts
 - AI: `@google/genai` (Gemini 2.5 Flash)
@@ -38,95 +41,72 @@ Core modules (selected):
 - `services/weatherService.ts` — OpenWeather geocoding + forecast aggregation.
 - `types.ts` — Shared type definitions.
 
-## Requirements
+**Requirements**
 - Node.js 18+ (recommended 20+)
 - npm 9+
-- An OpenWeather API key (recommended for production)
-- A Google Gemini API key
+- Google Gemini API key
+- OpenWeather API key (recommended for production)
 - Optional: ESP32 device on the same LAN exposing the endpoints below
 
-## Quick Start
-1. Install dependencies
-   - `npm install`
-2. Configure environment variables
-   - Create `.env.local` in the project root with:
-     - `VITE_GEMINI_API_KEY=your_gemini_api_key`
-     - `VITE_API_URL=http://localhost:4000`
-   - Start the backend in `server/` with your Atlas `MONGODB_URI` and `JWT_SECRET`.
-3. Run the app in development
-   - `npm run dev`
-   - Open http://localhost:3000
-4. Connect to your device (optional)
-   - In the UI Device Connection panel, enter the ESP32 IP (e.g., `192.168.1.123`).
-   - Click Connect. A green status dot indicates a successful connection.
+**Quick Start**
+- Install dependencies: `npm install`
+- Configure env vars:
+  - Create `.env.local` in project root:
+    - `VITE_GEMINI_API_KEY=your_gemini_api_key`
+    - `VITE_API_URL=http://localhost:4000`
+  - Backend (in `server/`): set `MONGODB_URI` and `JWT_SECRET` in `server/.env`.
+- Start backend: `cd server && npm run dev`
+- Run the app: `npm run dev` then open `http://localhost:3000`
+- Optional device connect: In the UI, enter ESP32 IP (e.g., `192.168.1.123`) and click Connect.
 
-Build for production
-- `npm run build`
-- Preview locally: `npm run preview`
+**Build & Preview**
+- Build: `npm run build`
+- Preview: `npm run preview`
 
-## Live vs Demo Mode (Moisture)
-- Connected to ESP32 (Live)
-  - Moisture bar is read‑only, shows “Live”, and updates from the device.
-- Disconnected (Demo)
-  - Moisture shows a “Demo” tag and a slider. Drag to simulate values.
-  - The chart and AI insights update in real time based on the simulated value.
+**Live vs Demo Mode**
+- Connected to ESP32 (Live): moisture bar is read‑only, shows “Live”, and updates from the device.
+- Disconnected (Demo): moisture shows a “Demo” tag and a slider; chart and AI insights update in real time based on the simulated value.
 
-## ESP32 Integration
-The UI connects to a locally hosted ESP32 HTTP server using the following endpoints:
+**ESP32 Integration**
+- Endpoints expected by the UI:
+  - GET `/status` → current state, e.g. `{ "moisture": 47.5, "pumpStatus": "OFF" }`
+  - POST `/pump` → body `{ "state": "ON" }` or `{ "state": "OFF" }`
+- Notes
+  - App polls `/status` roughly every 2 seconds when connected.
+  - Ensure ESP32 includes CORS headers (e.g., `Access-Control-Allow-Origin: *`).
+  - Your computer and the ESP32 must be on the same network.
 
-- GET `/status`
-  - Returns the current state:
-    ```json
-    {
-      "moisture": 47.5,
-      "pumpStatus": "OFF"
-    }
-    ```
-- POST `/pump`
-  - Body: `{ "state": "ON" }` or `{ "state": "OFF" }`
-  - Turns the pump on/off.
-
-Notes
-- The app polls `/status` roughly every 2 seconds when connected.
-- Ensure your ESP32 includes CORS headers (e.g., `Access-Control-Allow-Origin: *`) so the browser can fetch from it.
-- Your computer and the ESP32 must be on the same network.
-
-## AI Insights
+**AI Insights**
 - Model: Gemini 2.5 Flash via `@google/genai`.
-- The prompt is domain‑tuned for irrigation and instructs the model to return a strict JSON object with:
+- Prompt returns strict JSON with:
   - `decision`: `Irrigate` or `Hold`
   - `reason`: brief explanation
   - `analysis_points`: 2–3 short bullets
   - `confidence_score`: 0.0–1.0
-- Auto‑refresh mode keeps recommendations fresh with cached‑weather updates every 30s and a periodic full refresh.
-- Crop-aware decisions: set the crop type in Location Settings. The AI adjusts thresholds for water-loving vs. drought-tolerant crops when recommending irrigation.
+- Auto‑refresh: frequent lightweight updates, periodic full refresh.
+- Crop‑aware thresholds: set crop type in Location Settings.
 
-Environment variables
+**Environment Variables**
 - Frontend: `VITE_GEMINI_API_KEY`, `VITE_API_URL`
 - Server: `MONGODB_URI`, `JWT_SECRET`, `CORS_ORIGIN`, `PORT`
 
-## Weather Data
-- Sources data from OpenWeather:
-  - Geocoding: resolve the location string to coordinates.
-  - Current Weather: temperature/humidity.
-  - 5‑Day/3‑Hour Forecast: aggregated to daily values with max precipitation probability per day.
-- Region selector helps form the location string (Country/Division/Zilla/Upazila).
+**Weather Data**
+- OpenWeather sources: Geocoding, Current Weather, 5‑Day/3‑Hour Forecast
+- Region selector assists (Country/Division/Zilla/Upazila)
+- Production note: `services/weatherService.ts` has a default key for convenience; replace with your own before deploying.
 
-Production note
-- `services/weatherService.ts` currently includes a default API key for convenience. Replace it with your own key or refactor to read from an environment variable before deploying to production.
+**Pump Control Logic**
+- Hysteresis and safety timers (subject to code):
+  - Turn ON if moisture ≤ ~30% and AI recommends `Irrigate` (min OFF cooldown applies).
+  - Turn OFF if moisture ≥ ~55% or AI recommends `Hold` (min ON runtime applies).
+- All actions are added to the Activity Log.
 
-## Pump Control Logic (when AI Mode is enabled)
-- Hysteresis thresholds and safety timers (subject to change in code):
-  - Turn ON if moisture ≤ ~30% and recommendation is `Irrigate` (minimum OFF cooldown applies).
-  - Turn OFF if moisture ≥ ~55% or recommendation is `Hold` (minimum ON runtime applies).
-- All actions are appended to the Activity Log.
-
-## Scripts
+**Scripts**
 - `npm run dev` — Start dev server at `http://localhost:3000`.
 - `npm run build` — Production build with Vite.
 - `npm run preview` — Preview the built app locally.
 
-## Project Structure (partial)
+**Project Structure (Partial)**
 ```
 smart-irrigation-system/
 ├─ components/
@@ -150,25 +130,32 @@ smart-irrigation-system/
 └─ .env.local (not committed)
 ```
 
-## Security & Privacy
+**Security & Privacy**
 - Do not commit `.env.local` or any API keys to version control.
 - If hosting, configure secrets in your platform’s environment settings.
 - The app makes direct requests from the browser to ESP32 and OpenWeather; avoid exposing your device publicly.
 
-## Troubleshooting
-- Cannot connect to ESP32
-  - Verify the IP address (from Serial Monitor) and that your machine and device are on the same Wi‑Fi.
-  - Confirm the ESP32 serves CORS headers for browser requests.
-- AI key errors
-  - Ensure `.env.local` contains `VITE_GEMINI_API_KEY` and restart the dev server after changes.
-- Weather errors or wrong location
-  - Check the Location Settings and try a more precise name.
+**Troubleshooting**
+- ESP32 connection issues: verify IP, same Wi‑Fi, and CORS headers.
+- AI key errors: ensure `.env.local` has `VITE_GEMINI_API_KEY` and restart dev server after changes.
+- Weather errors or wrong location: adjust Location Settings and try a more precise name.
 
-## Roadmap Ideas
+**Roadmap**
 - Use environment variables for OpenWeather API key.
 - Offline caching and PWA mode for field use.
 - Multi‑device management and role‑based auth.
 - Calibrations per soil/plant type.
+
+**Team**
+- Minhajul Islam
+- Aong Cho Thing Marma
+- Jahirul Islam
+- Md. Arman
+
+**Supervisor**
+- Dr. Mohammad Shahadat Hossain
+- Professor, Department of Computer Science & Engineering
+- University of Chittagong
 
 ---
 This project is for educational and prototyping purposes. Verify recommendations with local agronomy best practices before acting in production.
