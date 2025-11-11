@@ -1,4 +1,4 @@
-# Smart Irrigation System (React + AI)
+# Automated Drip Irrigation with Weather Prediction
 
 A modern, browser‑based smart irrigation dashboard built with React, TypeScript, and Vite. It connects to an ESP32‑based soil sensor and pump controller for live operation, or runs in a safe Demo mode to simulate and demonstrate AI‑assisted irrigation decisions without hardware.
 
