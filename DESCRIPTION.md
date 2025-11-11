@@ -1,0 +1,1 @@
+A smart irrigation system built with TypeScript that automates plant watering based on soil moisture readings and schedules. Includes web/remote control and integrations for common IoT boards (ESP32 / Raspberry Pi) and messaging protocols.
